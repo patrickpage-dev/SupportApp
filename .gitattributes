@@ -1,0 +1,15 @@
+* text=auto
+
+# Keep consistent LF endings across Mac/Windows
+*.swift text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.plist text eol=lf
+*.xcconfig text eol=lf
+
+# Xcode project files
+*.pbxproj text eol=lf
+*.xcscheme text eol=lf
+
