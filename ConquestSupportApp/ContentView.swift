@@ -189,7 +189,7 @@ struct ContentView: View {
         }
     }
 
-    /// Builds mailto URL with subject, body template, and optional app/iOS version lines.
+    /// Builds mailto URL with subject and body template.
     private func buildMailtoURL() -> URL? {
         var components = URLComponents()
         components.scheme = "mailto"
@@ -202,20 +202,13 @@ struct ContentView: View {
     }
 
     private func emailBodyTemplate() -> String {
-        var lines = [
+        let lines = [
             "Name:",
-            "Company / Property:",
+            "Company/Property:",
             "Best callback #:",
-            "Issue summary:",
-            "When did it start:",
-            "Impact (1 user / many / outage):"
+            "Issue Summary:"
         ]
-        if let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-           let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-            lines.append("App version: \(appVersion) (\(build))")
-        }
-        lines.append("iOS version: \(UIDevice.current.systemVersion)")
-        return lines.joined(separator: "\n\n")
+        return lines.joined(separator: "\n")
     }
 }
 
