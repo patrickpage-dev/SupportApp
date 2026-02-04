@@ -19,8 +19,8 @@ enum AppTheme {
 
     /// Screen title text: black in light mode, white in dark (adaptive).
     static let titleTextColor = Color.primary
-    /// Primary action button background. Black for conservative contrast; Conquest red asset can be used for brand alignment.
-    static let buttonBackground = Color.black
+    /// Conquest brand red for primary actions; keep contrast with buttonForeground.
+    static let buttonBackground = conquestRed
     /// Text/icons on primary button background. Conservative contrast for accessibility.
     static let buttonForeground = Color.white
 
