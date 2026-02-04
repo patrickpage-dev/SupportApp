@@ -10,10 +10,10 @@ import SwiftUI
 enum AppTheme {
     // MARK: - Colors (asset-based; no hard-coded hex in views)
 
-    static let primary = Color("Primary")
-    static let secondary = Color("Secondary")
-    static let background = Color("Background")
-    static let accent = Color("Accent")
+    static let primary = Color("CSPrimary")
+    static let secondary = Color("CSSecondary")
+    static let background = Color("CSBackground")
+    static let accent = Color("CSAccent")
     /// Conquest brand red (e.g. footer tagline, logo accent).
     static let conquestRed = Color("ConquestRed")
 

@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.openURL) private var openURL
+
     private let supportPhoneNumber = "770-953-2500"
     private let supportEmail = "support@csatlanta.com"
     /// Top padding for logo hierarchy (logo no longer vertically centered).
@@ -129,19 +131,19 @@ struct ContentView: View {
 
     private func openCall() {
         guard let url = URL(string: "tel://7709532500") else { return }
-        if UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url)
-        } else {
-            showCallUnavailableAlert = true
+        openURL(url) { accepted in
+            if !accepted {
+                showCallUnavailableAlert = true
+            }
         }
     }
 
     private func openEmail() {
         guard let url = URL(string: "mailto:\(supportEmail)") else { return }
-        if UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url)
-        } else {
-            showEmailUnavailableAlert = true
+        openURL(url) { accepted in
+            if !accepted {
+                showEmailUnavailableAlert = true
+            }
         }
     }
 }
