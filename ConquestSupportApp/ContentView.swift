@@ -15,12 +15,18 @@ struct ContentView: View {
     private let supportPhoneDisplay = "770-953-2500"
     private var supportPhoneDigits: String { supportPhoneDisplay.filter(\.isNumber) }
     private let supportEmail = "support@csatlanta.com"
-    /// Top padding for logo hierarchy; kept small so top content sits higher (safe area handles notch).
-    private let topPadding: CGFloat = 8
+    /// Top padding for pinned logo (below safe area).
+    private let topPadding: CGFloat = 4
     /// Max logo height; keeps top group compact so content sits higher.
     private let logoMaxHeight: CGFloat = 180
-    /// Minimum vertical space reserved below main content for future Sign In section.
-    private let minHeightReservedForFutureSignIn: CGFloat = 100
+    /// Conquest blog URL for in-app Safari sheet.
+    private let blogURL = URL(string: "https://csatlanta.com/resources/blog/")!
+    /// Reserved height for pinned footer so scroll content is not obscured (~90–120pt).
+    private let footerHeightReserved: CGFloat = 100
+    /// Reserved height for pinned logo so scroll content starts below it.
+    private let logoHeightReserved: CGFloat = 190
+    /// Height of the visible pinned header surface that receives the shadow (logo + top padding).
+    private let pinnedHeaderHeight: CGFloat = 185
 
     /// Add Conquest Solutions logo to Assets as "ConquestLogo" to replace this placeholder.
     private static let logoAssetName = "ConquestLogo"
@@ -28,16 +34,16 @@ struct ContentView: View {
     @State private var showCallUnavailableAlert = false
     @State private var showEmailUnavailableAlert = false
     @State private var showEmailCopiedAlert = false
+    @State private var showEmailOptions = false
+    @State private var showBlogSafari = false
 
     var body: some View {
         GeometryReader { geo in
-            VStack(spacing: 24) {
-                logoView(availableWidth: geo.size.width)
-
-                // Future: Sign In section goes here
-                Spacer(minLength: minHeightReservedForFutureSignIn)
-
-                VStack(spacing: 24) {
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Action group: directly under logo
+                        VStack(spacing: 16) {
                     Text("Choose an option below to reach our support team.")
                         .font(AppTheme.calloutFont)
                         .foregroundStyle(AppTheme.titleTextColor)
@@ -60,7 +66,7 @@ struct ContentView: View {
                     .buttonStyle(PrimaryActionButtonStyle())
 
                     Button {
-                        openEmail()
+                        showEmailOptions = true
                         } label: {
                             Label("Email Support", systemImage: "envelope.fill")
                                 .font(AppTheme.buttonFont)
@@ -71,30 +77,78 @@ struct ContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(PrimaryActionButtonStyle())
-
-                    Button {
-                        UIPasteboard.general.string = supportEmail
-                        showEmailCopiedAlert = true
-                    } label: {
-                        Label("Copy Email", systemImage: "link")
-                                .font(AppTheme.calloutFont)
-                                .foregroundStyle(AppTheme.titleTextColor)
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 14)
-                                .background(Color.primary.opacity(0.06))
-                                .clipShape(Capsule())
-                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.2), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 32)
                 }
+                .padding(.top, 8)
+
+                // Conquest Blog section
+                VStack(spacing: 12) {
+                    Text("Conquest Blog")
+                        .font(AppTheme.headlineFont)
+                        .foregroundStyle(AppTheme.titleTextColor)
+                    Text("Updates, security tips, and IT insights.")
+                        .font(AppTheme.calloutFont)
+                        .foregroundStyle(AppTheme.titleTextColor)
+                        .multilineTextAlignment(.center)
+                    Button {
+                        showBlogSafari = true
+                    } label: {
+                        Label("View Blog", systemImage: "arrow.up.right.square")
+                            .font(AppTheme.calloutFont)
+                            .foregroundStyle(AppTheme.titleTextColor)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 14)
+                            .background(Color.primary.opacity(0.08))
+                            .clipShape(Capsule())
+                            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.25), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.primary.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.primary.opacity(0.2), lineWidth: 1)
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+
+                    }
+                    .padding(EdgeInsets(top: logoHeightReserved, leading: 16, bottom: footerHeightReserved + 24, trailing: 16))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                VStack(spacing: 0) {
+                    ZStack(alignment: .top) {
+                        Rectangle()
+                            .fill(AppTheme.background)
+                            .frame(height: pinnedHeaderHeight)
+                        logoView(availableWidth: geo.size.width)
+                            .padding(.top, topPadding)
+                            .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                    .frame(height: pinnedHeaderHeight)
+                    .frame(maxWidth: .infinity)
+                    .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 2)
+
+                    Color.clear
+                        .frame(height: max(0, logoHeightReserved - pinnedHeaderHeight))
+
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
 
                 footerView
                     .padding(.bottom, 24)
             }
-            .padding(EdgeInsets(top: topPadding, leading: 16, bottom: 16, trailing: 16))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(AppTheme.background)
             .alert("Call Not Available", isPresented: $showCallUnavailableAlert) {
                 Button("Copy Number") {
@@ -116,6 +170,21 @@ struct ContentView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("Support email has been copied to the clipboard.")
+            }
+            .alert("Email Support", isPresented: $showEmailOptions) {
+                Button("Compose Email") {
+                    openEmail()
+                }
+                Button("Copy Email") {
+                    UIPasteboard.general.string = supportEmail
+                    showEmailCopiedAlert = true
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Choose an option")
+            }
+            .sheet(isPresented: $showBlogSafari) {
+                SafariView(url: blogURL)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
