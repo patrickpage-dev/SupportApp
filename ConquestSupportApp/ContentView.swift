@@ -8,22 +8,21 @@
 import SwiftUI
 import UIKit
 
-// MARK: - PreferenceKey for measured header height (Dynamic Type–safe layout)
-
-private struct HeaderHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat { 0 }
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-
 /// Drives a single alert; only one alert is shown at a time.
 private enum ActiveAlert: Identifiable {
     case callUnavailable
     case emailUnavailable
-    case emailOptions
     case invalidBlogURL
     case openWebsiteConfirm
     case openExternalLinkConfirm
     var id: Self { self }
+}
+
+private struct ServiceItem: Identifiable {
+    let id: String
+    let title: String
+    let symbol: String
+    let url: URL
 }
 
 struct ContentView: View {
@@ -46,25 +45,33 @@ struct ContentView: View {
     private let mapsURLString = "https://www.google.com/maps/place/Conquest+Solutions/@33.9215452,-84.4688156,15z/data=!4m5!3m4!1s0x0:0xce1e5df2e294f4c5!8m2!3d33.9215452!4d-84.4688156"
     private let facebookURLString = "https://www.facebook.com/conquestsolutions/"
     private let linkedInURLString = "https://www.linkedin.com/company/conquestsolutions"
-    /// Height of the pinned header surface (single source of truth for header bar).
-    private let pinnedHeaderHeight: CGFloat = 185
-    /// Reject header measurements above this to avoid full-screen values pushing content off-screen.
-    private let maxReasonableHeaderHeight: CGFloat = 500
+    /// Fixed height for the pinned header.
+    private let headerHeight: CGFloat = 185
 
-    /// Our Services list (all 7 items in order).
-    private let servicesList: [(title: String, symbol: String)] = [
-        ("Managed IT (On Prem and Cloud)", "server.rack"),
-        ("Access Control", "lock.shield"),
-        ("Cameras", "video.fill"),
-        ("Telecom Solutions", "antenna.radiowaves.left.and.right"),
-        ("Networking", "network"),
-        ("Cybersecurity", "shield.fill"),
-        ("Backup & Disaster Recovery", "arrow.clockwise.icloud.fill")
+    /// Fallback URL when a service URL string is invalid (avoids force-unwrap at runtime).
+    private static let serviceURLFallback: URL = URL(string: "https://csatlanta.com/")!
+    private static func mustURL(_ string: String) -> URL {
+        guard let url = URL(string: string) else {
+            assertionFailure("Invalid URL: \(string)")
+            return Self.serviceURLFallback
+        }
+        return url
+    }
+
+    /// Our Services list (all 7 items in order) with URLs for tappable rows.
+    private let servicesList: [ServiceItem] = [
+        ServiceItem(id: "managed-it", title: "Managed IT (On Prem and Cloud)", symbol: "server.rack", url: Self.mustURL("https://csatlanta.com/it-solutions/")),
+        ServiceItem(id: "access-control", title: "Access Control", symbol: "lock.shield", url: Self.mustURL("https://csatlanta.com/security-solutions/access-control/")),
+        ServiceItem(id: "cameras", title: "Cameras", symbol: "video.fill", url: Self.mustURL("https://csatlanta.com/security-solutions/surveillance/")),
+        ServiceItem(id: "telecom", title: "Telecom Solutions", symbol: "antenna.radiowaves.left.and.right", url: Self.mustURL("https://csatlanta.com/telecom-solutions/business-communication-systems/")),
+        ServiceItem(id: "networking", title: "Networking", symbol: "network", url: Self.mustURL("https://csatlanta.com/telecom-solutions/business-internet/")),
+        ServiceItem(id: "cybersecurity", title: "Cybersecurity", symbol: "shield.fill", url: Self.mustURL("https://csatlanta.com/it-solutions/business-it-services/cybersecurity/")),
+        ServiceItem(id: "backup-dr", title: "Backup & Disaster Recovery", symbol: "arrow.clockwise.icloud.fill", url: Self.mustURL("https://csatlanta.com/it-solutions/backup-and-disaster-recovery-services/"))
     ]
 
-    /// Services to show: all when expanded, first 2 when collapsed.
-    private var visibleServices: [(title: String, symbol: String)] {
-        isServicesExpanded ? servicesList : Array(servicesList.prefix(2))
+    /// Services to show: first 3 when collapsed, all when expanded.
+    private var visibleServices: [ServiceItem] {
+        isServicesExpanded ? servicesList : Array(servicesList.prefix(3))
     }
 
     /// Add Conquest Solutions logo to Assets as "ConquestLogo" to replace this placeholder.
@@ -72,14 +79,11 @@ struct ContentView: View {
     /// Cached so logoView does not call UIImage(named:) on every body evaluation.
     private static let hasLogoAsset: Bool = UIImage(named: Self.logoAssetName) != nil
 
-    @State private var activeAlert: ActiveAlert?
-    /// Used by .alert(item:) for 2-button alerts; not set for .emailOptions (uses confirmationDialog).
     @State private var alertItem: ActiveAlert?
     @State private var showEmailOptionsDialog = false
     @State private var showBlogSafari = false
     @State private var blogURLToOpen: URL?
     @State private var showEmailCopiedConfirmation = false
-    @State private var measuredHeaderHeight: CGFloat = 0
     @State private var isServicesExpanded = false
     @State private var isSupportBorderBreathing = false
     @State private var pendingExternalURL: URL?
@@ -113,7 +117,6 @@ struct ContentView: View {
                     .buttonStyle(PrimaryActionButtonStyle())
 
                     Button {
-                        activeAlert = .emailOptions
                         showEmailOptionsDialog = true
                         } label: {
                             Label("Email Support", systemImage: "envelope.fill")
@@ -159,7 +162,7 @@ struct ContentView: View {
                 // Our Services section
                 VStack(alignment: .leading, spacing: 12) {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                             isServicesExpanded.toggle()
                         }
                     } label: {
@@ -168,9 +171,16 @@ struct ContentView: View {
                                 .font(AppTheme.headlineFont)
                                 .foregroundStyle(AppTheme.titleTextColor)
                             Spacer()
-                            Image(systemName: isServicesExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(AppTheme.titleTextColor)
+                            HStack(spacing: 8) {
+                                Text(isServicesExpanded ? "Show less" : "Show more")
+                                    .font(AppTheme.calloutFont)
+                                    .foregroundStyle(AppTheme.titleTextColor)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(AppTheme.titleTextColor)
+                                    .rotationEffect(.degrees(isServicesExpanded ? 180 : 0))
+                                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isServicesExpanded)
+                            }
                         }
                         .padding(.vertical, 6)
                         .padding(.horizontal, 4)
@@ -180,8 +190,9 @@ struct ContentView: View {
                     .accessibilityValue(isServicesExpanded ? "Expanded" : "Collapsed")
                     .accessibilityHint("Double tap to expand or collapse")
 
-                    ForEach(Array(visibleServices.enumerated()), id: \.element.title) { index, item in
-                        ourServicesTile(title: item.title, symbol: item.symbol)
+                    ForEach(Array(visibleServices.enumerated()), id: \.element.id) { index, service in
+                        serviceRow(service)
+                            .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
                         if index < visibleServices.count - 1 {
                             Divider()
                         }
@@ -225,8 +236,9 @@ struct ContentView: View {
                         Spacer(minLength: 0)
                     }
                     Button {
-                        guard let url = URL(string: blogURLString), url.scheme != nil else {
-                            activeAlert = .invalidBlogURL
+                        guard let url = URL(string: blogURLString),
+                              let scheme = url.scheme?.lowercased(),
+                              scheme == "http" || scheme == "https" else {
                             alertItem = .invalidBlogURL
                             return
                         }
@@ -260,7 +272,7 @@ struct ContentView: View {
                     footerView
                         .padding(.top, 20)
                     }
-                    .padding(EdgeInsets(top: max(measuredHeaderHeight, logoMaxHeight + topPadding), leading: 16, bottom: 32, trailing: 16))
+                    .padding(EdgeInsets(top: headerHeight, leading: 16, bottom: 32, trailing: 16))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -270,7 +282,6 @@ struct ContentView: View {
                             .fill(AppTheme.background)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         Button {
-                            activeAlert = .openWebsiteConfirm
                             alertItem = .openWebsiteConfirm
                         } label: {
                             logoView(availableWidth: geo.size.width)
@@ -281,12 +292,13 @@ struct ContentView: View {
                         .padding(.top, topPadding)
                         .frame(maxWidth: .infinity, alignment: .top)
                     }
-                    .frame(height: pinnedHeaderHeight)
+                    .frame(height: headerHeight)
                     .frame(maxWidth: .infinity)
-                    .background(GeometryReader { g in
-                        Color.clear.preference(key: HeaderHeightKey.self, value: g.size.height)
-                    })
-                    .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 2)
+                    .overlay(alignment: .bottom) {
+                        LinearGradient(colors: [AppTheme.background, .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 20)
+                    }
+                    .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
 
                     Spacer(minLength: 0)
                 }
@@ -296,9 +308,6 @@ struct ContentView: View {
                 .allowsHitTesting(true)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onPreferenceChange(HeaderHeightKey.self) { value in
-                if value > 0, value <= maxReasonableHeaderHeight { measuredHeaderHeight = value }
-            }
             .background(AppTheme.background)
             .task(id: showEmailCopiedConfirmation) {
                 guard showEmailCopiedConfirmation else { return }
@@ -314,9 +323,8 @@ struct ContentView: View {
                         primaryButton: .default(Text("Copy Number")) {
                             UIPasteboard.general.string = supportPhoneDigits
                             alertItem = nil
-                            activeAlert = nil
                         },
-                        secondaryButton: .cancel(Text("OK")) { alertItem = nil; activeAlert = nil }
+                        secondaryButton: .cancel(Text("OK")) { alertItem = nil }
                     )
                 case .emailUnavailable:
                     return Alert(
@@ -325,17 +333,14 @@ struct ContentView: View {
                         primaryButton: .default(Text("Copy Email")) {
                             copySupportEmail()
                             alertItem = nil
-                            activeAlert = nil
                         },
-                        secondaryButton: .cancel(Text("OK")) { alertItem = nil; activeAlert = nil }
+                        secondaryButton: .cancel(Text("OK")) { alertItem = nil }
                     )
-                case .emailOptions:
-                    fatalError("emailOptions uses confirmationDialog")
                 case .invalidBlogURL:
                     return Alert(
                         title: Text("Blog Unavailable"),
                         message: Text("The blog link is misconfigured. Please try again later."),
-                        dismissButton: .cancel(Text("OK")) { alertItem = nil; activeAlert = nil }
+                        dismissButton: .cancel(Text("OK")) { alertItem = nil }
                     )
                 case .openWebsiteConfirm:
                     return Alert(
@@ -344,9 +349,8 @@ struct ContentView: View {
                         primaryButton: .default(Text("Open")) {
                             openMainSite()
                             alertItem = nil
-                            activeAlert = nil
                         },
-                        secondaryButton: .cancel(Text("Cancel")) { alertItem = nil; activeAlert = nil }
+                        secondaryButton: .cancel(Text("Cancel")) { alertItem = nil }
                     )
                 case .openExternalLinkConfirm:
                     return Alert(
@@ -356,12 +360,10 @@ struct ContentView: View {
                             if let url = pendingExternalURL { openURL(url) }
                             pendingExternalURL = nil
                             alertItem = nil
-                            activeAlert = nil
                         },
                         secondaryButton: .cancel(Text("Cancel")) {
                             pendingExternalURL = nil
                             alertItem = nil
-                            activeAlert = nil
                         }
                     )
                 }
@@ -369,17 +371,14 @@ struct ContentView: View {
             .confirmationDialog("Email Support", isPresented: $showEmailOptionsDialog, titleVisibility: .visible) {
                 Button("Compose Email") {
                     showEmailOptionsDialog = false
-                    activeAlert = nil
                     openEmail()
                 }
                 Button("Copy Email") {
                     copySupportEmail()
                     showEmailOptionsDialog = false
-                    activeAlert = nil
                 }
                 Button("Cancel", role: .cancel) {
                     showEmailOptionsDialog = false
-                    activeAlert = nil
                 }
             } message: {
                 Text("Choose an option")
@@ -445,6 +444,20 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Tappable service row: opens service URL via "Open Link?" confirmation when url is non-nil.
+    private func serviceRow(_ service: ServiceItem) -> some View {
+        Button {
+            pendingExternalURL = service.url
+            alertItem = .openExternalLinkConfirm
+        } label: {
+            ourServicesTile(title: service.title, symbol: service.symbol)
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel("\(service.title), opens website")
+        .accessibilityHint("Opens in your browser")
+    }
+
     /// Footer social icon: asset image in circular background, opens URL in external browser.
     /// When useWhiteBackdrop is true, inner content is hard-masked to a circle to remove square artifacts.
     private func socialIconButton(
@@ -454,12 +467,12 @@ struct ContentView: View {
         innerPadding: CGFloat,
         accessibilityLabel: String,
         useWhiteBackdrop: Bool = false,
-        whiteBackdropScale: CGFloat = 0.82,
         innerMaskScale: CGFloat = 0.86
     ) -> some View {
         Button {
             guard let url = URL(string: urlString) else { return }
-            openURL(url)
+            pendingExternalURL = url
+            alertItem = .openExternalLinkConfirm
         } label: {
             Circle()
                 .fill(AppTheme.conquestRed.opacity(0.10))
@@ -469,15 +482,17 @@ struct ContentView: View {
                         if useWhiteBackdrop {
                             Circle()
                                 .fill(Color.white)
+                                .frame(width: iconSize * innerMaskScale, height: iconSize * innerMaskScale)
                         }
                         Image(imageName)
                             .renderingMode(.original)
                             .resizable()
                             .scaledToFit()
                             .padding(innerPadding)
+                            .frame(width: iconSize * innerMaskScale, height: iconSize * innerMaskScale)
+                            .clipShape(Circle())
                     }
                     .frame(width: iconSize * innerMaskScale, height: iconSize * innerMaskScale)
-                    .clipShape(Circle())
                 }
                 .overlay {
                     Circle()
@@ -524,7 +539,6 @@ struct ContentView: View {
                     innerPadding: 9,
                     accessibilityLabel: "Open Facebook",
                     useWhiteBackdrop: true,
-                    whiteBackdropScale: 0.86,
                     innerMaskScale: 0.88
                 )
                 socialIconButton(
@@ -534,7 +548,6 @@ struct ContentView: View {
                     innerPadding: 8,
                     accessibilityLabel: "Open LinkedIn",
                     useWhiteBackdrop: true,
-                    whiteBackdropScale: 0.84,
                     innerMaskScale: 0.86
                 )
             }
@@ -550,7 +563,6 @@ struct ContentView: View {
         guard let url = URL(string: "tel://\(supportPhoneDigits)") else { return }
         openURL(url) { accepted in
             if !accepted {
-                activeAlert = .callUnavailable
                 alertItem = .callUnavailable
             }
         }
@@ -560,7 +572,6 @@ struct ContentView: View {
         guard let url = buildMailtoURL() else { return }
         openURL(url) { accepted in
             if !accepted {
-                activeAlert = .emailUnavailable
                 alertItem = .emailUnavailable
             }
         }
