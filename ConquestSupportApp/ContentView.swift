@@ -21,6 +21,8 @@ private enum ActiveAlert: Identifiable {
     case emailUnavailable
     case emailOptions
     case invalidBlogURL
+    case openWebsiteConfirm
+    case openExternalLinkConfirm
     var id: Self { self }
 }
 
@@ -38,6 +40,12 @@ struct ContentView: View {
     private let logoMaxHeight: CGFloat = 180
     /// Conquest blog URL string for in-app Safari sheet; validated before opening.
     private let blogURLString = "https://csatlanta.com/resources/blog/"
+    /// Main site URL for logo tap; opens in external Safari.
+    private let mainSiteURLString = "https://csatlanta.com/"
+    /// Social / Maps URLs for footer; open in external Safari/Maps.
+    private let mapsURLString = "https://www.google.com/maps/place/Conquest+Solutions/@33.9215452,-84.4688156,15z/data=!4m5!3m4!1s0x0:0xce1e5df2e294f4c5!8m2!3d33.9215452!4d-84.4688156"
+    private let facebookURLString = "https://www.facebook.com/conquestsolutions/"
+    private let linkedInURLString = "https://www.linkedin.com/company/conquestsolutions"
     /// Height of the pinned header surface (single source of truth for header bar).
     private let pinnedHeaderHeight: CGFloat = 185
     /// Reject header measurements above this to avoid full-screen values pushing content off-screen.
@@ -74,6 +82,7 @@ struct ContentView: View {
     @State private var measuredHeaderHeight: CGFloat = 0
     @State private var isServicesExpanded = false
     @State private var isSupportBorderBreathing = false
+    @State private var pendingExternalURL: URL?
 
     var body: some View {
         GeometryReader { geo in
@@ -147,6 +156,51 @@ struct ContentView: View {
                     }
                 }
 
+                // Our Services section
+                VStack(alignment: .leading, spacing: 12) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isServicesExpanded.toggle()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Our Services")
+                                .font(AppTheme.headlineFont)
+                                .foregroundStyle(AppTheme.titleTextColor)
+                            Spacer()
+                            Image(systemName: isServicesExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(AppTheme.titleTextColor)
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 4)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Our Services")
+                    .accessibilityValue(isServicesExpanded ? "Expanded" : "Collapsed")
+                    .accessibilityHint("Double tap to expand or collapse")
+
+                    ForEach(Array(visibleServices.enumerated()), id: \.element.title) { index, item in
+                        ourServicesTile(title: item.title, symbol: item.symbol)
+                        if index < visibleServices.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color(.systemBackground).opacity(0.98))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(AppTheme.conquestRed.opacity(0.25), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+
                 // Conquest Blog section
                 VStack(spacing: 16) {
                     HStack(alignment: .top, spacing: 12) {
@@ -203,39 +257,6 @@ struct ContentView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
-                // Our Services section
-                VStack(alignment: .leading, spacing: 12) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isServicesExpanded.toggle()
-                        }
-                    } label: {
-                        HStack {
-                            Text("Our Services")
-                                .font(AppTheme.headlineFont)
-                                .foregroundStyle(AppTheme.titleTextColor)
-                            Spacer()
-                            Image(systemName: isServicesExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(AppTheme.titleTextColor)
-                        }
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 4)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Our Services")
-                    .accessibilityValue(isServicesExpanded ? "Expanded" : "Collapsed")
-                    .accessibilityHint("Double tap to expand or collapse")
-
-                    ForEach(Array(visibleServices.enumerated()), id: \.element.title) { index, item in
-                        ourServicesTile(title: item.title, symbol: item.symbol)
-                        if index < visibleServices.count - 1 {
-                            Divider()
-                        }
-                    }
-                }
-                .padding(.horizontal, 20)
-
                     footerView
                         .padding(.top, 20)
                     }
@@ -248,9 +269,17 @@ struct ContentView: View {
                         Rectangle()
                             .fill(AppTheme.background)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        logoView(availableWidth: geo.size.width)
-                            .padding(.top, topPadding)
-                            .frame(maxWidth: .infinity, alignment: .top)
+                        Button {
+                            activeAlert = .openWebsiteConfirm
+                            alertItem = .openWebsiteConfirm
+                        } label: {
+                            logoView(availableWidth: geo.size.width)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Conquest Solutions website")
+                        .accessibilityHint("Opens csatlanta.com in Safari")
+                        .padding(.top, topPadding)
+                        .frame(maxWidth: .infinity, alignment: .top)
                     }
                     .frame(height: pinnedHeaderHeight)
                     .frame(maxWidth: .infinity)
@@ -263,8 +292,8 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .ignoresSafeArea(edges: .top)
-                // Header is decorative; enable hit testing if header becomes interactive (e.g., sign-in/profile).
-                .allowsHitTesting(false)
+                // Header allows hit testing so logo button can receive taps.
+                .allowsHitTesting(true)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onPreferenceChange(HeaderHeightKey.self) { value in
@@ -307,6 +336,33 @@ struct ContentView: View {
                         title: Text("Blog Unavailable"),
                         message: Text("The blog link is misconfigured. Please try again later."),
                         dismissButton: .cancel(Text("OK")) { alertItem = nil; activeAlert = nil }
+                    )
+                case .openWebsiteConfirm:
+                    return Alert(
+                        title: Text("Open Website?"),
+                        message: Text("You're about to leave the app and open csatlanta.com in Safari."),
+                        primaryButton: .default(Text("Open")) {
+                            openMainSite()
+                            alertItem = nil
+                            activeAlert = nil
+                        },
+                        secondaryButton: .cancel(Text("Cancel")) { alertItem = nil; activeAlert = nil }
+                    )
+                case .openExternalLinkConfirm:
+                    return Alert(
+                        title: Text("Open Link?"),
+                        message: Text("You're about to leave the app."),
+                        primaryButton: .default(Text("Open")) {
+                            if let url = pendingExternalURL { openURL(url) }
+                            pendingExternalURL = nil
+                            alertItem = nil
+                            activeAlert = nil
+                        },
+                        secondaryButton: .cancel(Text("Cancel")) {
+                            pendingExternalURL = nil
+                            alertItem = nil
+                            activeAlert = nil
+                        }
                     )
                 }
             }
@@ -389,21 +445,105 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Footer tagline: subtle, centered, near bottom.
-    private var footerView: some View {
-        VStack(spacing: 4) {
-            Text("Providing")
-                .font(AppTheme.calloutFont)
-                .foregroundStyle(AppTheme.titleTextColor)
-            Text("IT and Security Solutions")
-                .font(AppTheme.calloutFont)
-                .foregroundStyle(AppTheme.conquestRed)
-            Text("Since 2004")
-                .font(AppTheme.calloutFont)
-                .foregroundStyle(AppTheme.titleTextColor)
+    /// Footer social icon: asset image in circular background, opens URL in external browser.
+    /// When useWhiteBackdrop is true, inner content is hard-masked to a circle to remove square artifacts.
+    private func socialIconButton(
+        imageName: String,
+        urlString: String,
+        iconSize: CGFloat = 36,
+        innerPadding: CGFloat,
+        accessibilityLabel: String,
+        useWhiteBackdrop: Bool = false,
+        whiteBackdropScale: CGFloat = 0.82,
+        innerMaskScale: CGFloat = 0.86
+    ) -> some View {
+        Button {
+            guard let url = URL(string: urlString) else { return }
+            openURL(url)
+        } label: {
+            Circle()
+                .fill(AppTheme.conquestRed.opacity(0.10))
+                .frame(width: iconSize, height: iconSize)
+                .overlay {
+                    ZStack {
+                        if useWhiteBackdrop {
+                            Circle()
+                                .fill(Color.white)
+                        }
+                        Image(imageName)
+                            .renderingMode(.original)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(innerPadding)
+                    }
+                    .frame(width: iconSize * innerMaskScale, height: iconSize * innerMaskScale)
+                    .clipShape(Circle())
+                }
+                .overlay {
+                    Circle()
+                        .strokeBorder(AppTheme.conquestRed.opacity(0.20), lineWidth: 1)
+                }
         }
-        .multilineTextAlignment(.center)
-        .opacity(0.85)
+        .buttonStyle(.plain)
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Circle())
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Opens in Safari")
+    }
+
+    /// Footer tagline: subtle, centered, near bottom; social links below.
+    private var footerView: some View {
+        VStack(spacing: 12) {
+            VStack(spacing: 4) {
+                Text("Providing")
+                    .font(AppTheme.calloutFont)
+                    .foregroundStyle(AppTheme.titleTextColor)
+                Text("IT and Security Solutions")
+                    .font(AppTheme.calloutFont)
+                    .foregroundStyle(AppTheme.conquestRed)
+                Text("Since 2004")
+                    .font(AppTheme.calloutFont)
+                    .foregroundStyle(AppTheme.titleTextColor)
+            }
+            .multilineTextAlignment(.center)
+            .opacity(0.85)
+
+            HStack(spacing: 16) {
+                socialIconButton(
+                    imageName: "SocialGoogleMaps",
+                    urlString: mapsURLString,
+                    iconSize: 36,
+                    innerPadding: 6,
+                    accessibilityLabel: "Open Google Maps",
+                    useWhiteBackdrop: false
+                )
+                socialIconButton(
+                    imageName: "SocialFacebook",
+                    urlString: facebookURLString,
+                    iconSize: 36,
+                    innerPadding: 9,
+                    accessibilityLabel: "Open Facebook",
+                    useWhiteBackdrop: true,
+                    whiteBackdropScale: 0.86,
+                    innerMaskScale: 0.88
+                )
+                socialIconButton(
+                    imageName: "SocialLinkedIn",
+                    urlString: linkedInURLString,
+                    iconSize: 36,
+                    innerPadding: 8,
+                    accessibilityLabel: "Open LinkedIn",
+                    useWhiteBackdrop: true,
+                    whiteBackdropScale: 0.84,
+                    innerMaskScale: 0.86
+                )
+            }
+        }
+    }
+
+    private func openMainSite() {
+        guard let url = URL(string: mainSiteURLString) else { return }
+        openURL(url)
     }
 
     private func openCall() {
