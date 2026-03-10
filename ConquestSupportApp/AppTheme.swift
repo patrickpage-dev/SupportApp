@@ -37,3 +37,13 @@ enum AppTheme {
     /// Primary action button label; slight weight emphasis.
     static let buttonFont = Font.headline.weight(.semibold)
 }
+
+// MARK: - Shared button style (LoginView, SupportView)
+
+struct PrimaryActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .scaleEffect(configuration.isPressed ? 0.99 : 1)
+    }
+}
