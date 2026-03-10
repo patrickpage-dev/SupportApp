@@ -2,7 +2,7 @@
 //  LoginView.swift
 //  ConquestSupportApp
 //
-//  Sign-in screen: email, password, validation, mock auth (Phase 1).
+//  Sign-in screen: SSO-style buttons (Google, Microsoft), placeholder auth flow.
 //
 
 import SwiftUI
@@ -10,31 +10,32 @@ import SwiftUI
 struct LoginView: View {
     @EnvironmentObject private var sessionManager: SessionManager
 
-    @State private var email = ""
-    @State private var password = ""
-    @State private var errorMessage: String?
     @State private var showSupportSheet = false
-    @FocusState private var focusedField: Field?
-
-    private enum Field {
-        case email, password
-    }
-
-    private var isFormValid: Bool {
-        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && password.count >= 4
-    }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                Text("Conquest Client Portal")
-                    .font(AppTheme.titleFont)
-                    .foregroundStyle(AppTheme.titleTextColor)
-                    .padding(.top, 40)
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(spacing: 24) {
+                    Text("Conquest Client Portal")
+                        .font(AppTheme.calloutFont)
+                        .foregroundStyle(AppTheme.titleTextColor.opacity(0.9))
 
-                cardContent
+                    cardContent
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, AppHeaderView.height + 16)
             }
-            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.background)
+
+            VStack(spacing: 0) {
+                AppHeaderView()
+                    .frame(height: AppHeaderView.height)
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea(edges: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)
@@ -50,14 +51,9 @@ struct LoginView: View {
             }
         }
         .sheet(isPresented: $showSupportSheet) {
-            NavigationStack {
-                SupportView()
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { showSupportSheet = false }
-                        }
-                    }
-            }
+            SupportQuickAccessView(onDismiss: { showSupportSheet = false })
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -67,63 +63,80 @@ struct LoginView: View {
                 .font(AppTheme.headlineFont)
                 .foregroundStyle(AppTheme.titleTextColor)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Email")
-                    .font(AppTheme.calloutFont)
-                    .foregroundStyle(AppTheme.titleTextColor)
-                TextField("Email", text: $email)
-                    .textFieldStyle(.roundedBorder)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .textContentType(.emailAddress)
-                    .autocorrectionDisabled()
-                    .focused($focusedField, equals: .email)
-                    .onChange(of: email) { _, _ in errorMessage = nil }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Password")
-                    .font(AppTheme.calloutFont)
-                    .foregroundStyle(AppTheme.titleTextColor)
-                SecureField("Password", text: $password)
-                    .textFieldStyle(.roundedBorder)
-                    .textContentType(.password)
-                    .focused($focusedField, equals: .password)
-                    .onChange(of: password) { _, _ in errorMessage = nil }
-            }
-
-            if let message = errorMessage {
-                Text(message)
-                    .font(AppTheme.calloutFont)
-                    .foregroundStyle(AppTheme.conquestRed)
+            if let message = sessionManager.lastAuthError {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(AppTheme.conquestRed)
+                    Text(message)
+                        .font(AppTheme.calloutFont)
+                        .foregroundStyle(AppTheme.conquestRed)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.conquestRed.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
             Button {
-                attemptSignIn()
+                Task { await sessionManager.signInWithGoogle() }
             } label: {
-                Label("Sign In", systemImage: "arrow.right.circle.fill")
-                    .font(AppTheme.buttonFont)
-                    .foregroundStyle(AppTheme.buttonForeground)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.buttonBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                HStack(spacing: 12) {
+                    Image("googleIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                    Text("Continue with Google")
+                        .font(AppTheme.buttonFont)
+                        .foregroundStyle(AppTheme.titleTextColor)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(AppTheme.conquestRed.opacity(0.3), lineWidth: 1)
+                )
             }
             .buttonStyle(PrimaryActionButtonStyle())
-            .disabled(sessionManager.isSigningIn || !isFormValid)
+            .disabled(sessionManager.isSigningIn)
 
-            Button("Forgot Password?") {
-                // Placeholder; non-functional for Phase 1
+            Button {
+                Task { await sessionManager.signInWithMicrosoft() }
+            } label: {
+                HStack(spacing: 12) {
+                    Image("microsoftIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                    Text("Continue with Microsoft")
+                        .font(AppTheme.buttonFont)
+                        .foregroundStyle(AppTheme.titleTextColor)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(AppTheme.conquestRed.opacity(0.3), lineWidth: 1)
+                )
             }
-            .font(AppTheme.calloutFont)
-            .foregroundStyle(AppTheme.conquestRed)
-            .frame(maxWidth: .infinity)
+            .buttonStyle(PrimaryActionButtonStyle())
+            .disabled(sessionManager.isSigningIn)
 
-            Button("Need Help? Contact Support") {
+            Button {
                 showSupportSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "headphones")
+                    Text("Need Help? Contact Support")
+                        .fontWeight(.medium)
+                }
+                .font(AppTheme.calloutFont)
+                .foregroundStyle(AppTheme.conquestRed)
             }
-            .font(AppTheme.calloutFont)
-            .foregroundStyle(AppTheme.titleTextColor.opacity(0.8))
+            .buttonStyle(.plain)
             .frame(maxWidth: .infinity)
         }
         .padding(24)
@@ -137,23 +150,6 @@ struct LoginView: View {
                 .strokeBorder(AppTheme.conquestRed.opacity(0.25), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
-    }
-
-    private func attemptSignIn() {
-        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            errorMessage = "Please enter your email."
-            return
-        }
-        if password.count < 4 {
-            errorMessage = "Please enter a password with at least 4 characters."
-            return
-        }
-        errorMessage = nil
-        focusedField = nil
-        Task {
-            await sessionManager.signIn(email: trimmed, password: password)
-        }
     }
 }
 

@@ -15,7 +15,7 @@ struct AppHeaderView: View {
     /// Fixed height for the header; use for scroll content top padding.
     static let height: CGFloat = 160
 
-    private static let topPadding: CGFloat = 4
+    private static let topPadding: CGFloat = 12
     private static let logoMaxHeight: CGFloat = 155
     private static let logoAssetName = "ConquestLogo"
     private static let mainSiteURLString = "https://csatlanta.com/"
@@ -39,11 +39,6 @@ struct AppHeaderView: View {
             .frame(height: Self.height)
             .frame(maxWidth: .infinity)
             .background(AppTheme.background)
-            .overlay(alignment: .bottom) {
-                LinearGradient(colors: [AppTheme.background, .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 20)
-            }
-            .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
         }
         .frame(height: Self.height)
         .alert("Open Website?", isPresented: $showOpenWebsiteConfirm) {
