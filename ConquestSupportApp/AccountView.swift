@@ -11,17 +11,30 @@ struct AccountView: View {
     @EnvironmentObject private var sessionManager: SessionManager
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                profileCard
-                signOutButton
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(spacing: 24) {
+                    profileCard
+                    signOutButton
+                }
+                .padding(20)
+                .padding(.top, AppHeaderView.height)
             }
-            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.background)
+
+            VStack(spacing: 0) {
+                AppHeaderView()
+                    .frame(height: AppHeaderView.height)
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea(edges: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)
-        .navigationTitle("Account")
-        .navigationBarTitleDisplayMode(.large)
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     private var profileCard: some View {

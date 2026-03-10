@@ -40,6 +40,7 @@ struct MainTabView: View {
             }
             .tag(AppTab.account)
         }
+        .onAppear { selectedTab = .dashboard }
     }
 }
 

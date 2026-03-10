@@ -14,16 +14,29 @@ struct DashboardView: View {
     private let cardCorner: CGFloat = 14
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                welcomeSection
-                featureCards
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    welcomeSection
+                    featureCards
+                }
+                .padding(20)
+                .padding(.top, AppHeaderView.height)
             }
-            .padding(20)
+            .background(AppTheme.background)
+
+            VStack(spacing: 0) {
+                AppHeaderView()
+                    .frame(height: AppHeaderView.height)
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea(edges: .top)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)
-        .navigationTitle("Home")
-        .navigationBarTitleDisplayMode(.large)
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     private var welcomeSection: some View {

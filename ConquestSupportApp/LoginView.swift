@@ -13,6 +13,7 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var errorMessage: String?
+    @State private var showSupportSheet = false
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -46,6 +47,16 @@ struct LoginView: View {
                         .scaleEffect(1.2)
                         .tint(.white)
                 }
+            }
+        }
+        .sheet(isPresented: $showSupportSheet) {
+            NavigationStack {
+                SupportView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showSupportSheet = false }
+                        }
+                    }
             }
         }
     }
@@ -106,6 +117,13 @@ struct LoginView: View {
             }
             .font(AppTheme.calloutFont)
             .foregroundStyle(AppTheme.conquestRed)
+            .frame(maxWidth: .infinity)
+
+            Button("Need Help? Contact Support") {
+                showSupportSheet = true
+            }
+            .font(AppTheme.calloutFont)
+            .foregroundStyle(AppTheme.titleTextColor.opacity(0.8))
             .frame(maxWidth: .infinity)
         }
         .padding(24)

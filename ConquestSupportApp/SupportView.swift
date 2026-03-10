@@ -33,20 +33,14 @@ struct SupportView: View {
     private let supportPhoneDisplay = "770-953-2500"
     private var supportPhoneDigits: String { supportPhoneDisplay.filter(\.isNumber) }
     private let supportEmail = "support@csatlanta.com"
-    /// Top padding for pinned logo (below safe area).
-    private let topPadding: CGFloat = 4
-    /// Max logo height; keeps top group compact so content sits higher.
-    private let logoMaxHeight: CGFloat = 180
     /// Conquest blog URL string for in-app Safari sheet; validated before opening.
     private let blogURLString = "https://csatlanta.com/resources/blog/"
-    /// Main site URL for logo tap; opens in external Safari.
+    /// Main site URL for logo/website confirm; opens in external Safari.
     private let mainSiteURLString = "https://csatlanta.com/"
     /// Social / Maps URLs for footer; open in external Safari/Maps.
     private let mapsURLString = "https://www.google.com/maps/place/Conquest+Solutions/@33.9215452,-84.4688156,15z/data=!4m5!3m4!1s0x0:0xce1e5df2e294f4c5!8m2!3d33.9215452!4d-84.4688156"
     private let facebookURLString = "https://www.facebook.com/conquestsolutions/"
     private let linkedInURLString = "https://www.linkedin.com/company/conquestsolutions"
-    /// Fixed height for the pinned header.
-    private let headerHeight: CGFloat = 185
 
     /// Fallback URL when a service URL string is invalid (avoids force-unwrap at runtime).
     private static let serviceURLFallback: URL = URL(string: "https://csatlanta.com/")!
@@ -74,11 +68,6 @@ struct SupportView: View {
         isServicesExpanded ? servicesList : Array(servicesList.prefix(3))
     }
 
-    /// Add Conquest Solutions logo to Assets as "ConquestLogo" to replace this placeholder.
-    private static let logoAssetName = "ConquestLogo"
-    /// Cached so logoView does not call UIImage(named:) on every body evaluation.
-    private static let hasLogoAsset: Bool = UIImage(named: Self.logoAssetName) != nil
-
     @State private var alertItem: ActiveAlert?
     @State private var showEmailOptionsDialog = false
     @State private var showBlogSafari = false
@@ -89,8 +78,7 @@ struct SupportView: View {
     @State private var pendingExternalURL: URL?
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .bottom) {
+        ZStack(alignment: .bottom) {
                 ScrollView {
                     VStack(spacing: 20) {
                         // Action group: directly under logo
@@ -272,34 +260,14 @@ struct SupportView: View {
                         footerView
                             .padding(.top, 20)
                     }
-                    .padding(EdgeInsets(top: headerHeight, leading: 16, bottom: 32, trailing: 16))
+                    .padding(EdgeInsets(top: AppHeaderView.height, leading: 16, bottom: 32, trailing: 16))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 VStack(spacing: 0) {
-                    ZStack(alignment: .top) {
-                        Rectangle()
-                            .fill(AppTheme.background)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        Button {
-                            alertItem = .openWebsiteConfirm
-                        } label: {
-                            logoView(availableWidth: geo.size.width)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Conquest Solutions website")
-                        .accessibilityHint("Opens csatlanta.com in Safari")
-                        .padding(.top, topPadding)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                    }
-                    .frame(height: headerHeight)
-                    .frame(maxWidth: .infinity)
-                    .overlay(alignment: .bottom) {
-                        LinearGradient(colors: [AppTheme.background, .clear], startPoint: .top, endPoint: .bottom)
-                            .frame(height: 20)
-                    }
-                    .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
-
+                    AppHeaderView()
+                        .frame(height: AppHeaderView.height)
+                        .frame(maxWidth: .infinity)
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -346,7 +314,7 @@ struct SupportView: View {
                         title: Text("Open Website?"),
                         message: Text("You're about to leave the app and open csatlanta.com in Safari."),
                         primaryButton: .default(Text("Open")) {
-                            openMainSite()
+                            if let url = URL(string: mainSiteURLString) { openURL(url) }
                             alertItem = nil
                         },
                         secondaryButton: .cancel(Text("Cancel")) { alertItem = nil }
@@ -389,38 +357,7 @@ struct SupportView: View {
                     EmptyView()
                 }
             }
-        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func logoView(availableWidth: CGFloat) -> some View {
-        let logoWidth = availableWidth - 64
-        return Group {
-            if Self.hasLogoAsset {
-                Image(Self.logoAssetName)
-                    .renderingMode(.original)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: logoWidth, maxHeight: logoMaxHeight)
-                    .accessibilityLabel("Conquest Solutions logo")
-            } else {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(AppTheme.primary.opacity(0.12))
-                    .frame(width: logoWidth, height: 80)
-                    .overlay {
-                        HStack(spacing: 8) {
-                            Image(systemName: "building.2")
-                                .font(AppTheme.calloutFont)
-                                .foregroundStyle(AppTheme.primary)
-                            Text("Conquest Solutions")
-                                .font(AppTheme.calloutFont)
-                                .fontWeight(.medium)
-                                .foregroundStyle(AppTheme.primary)
-                        }
-                    }
-            }
-        }
-        .padding(.horizontal, 32)
     }
 
     private func ourServicesTile(title: String, symbol: String) -> some View {
@@ -543,11 +480,6 @@ struct SupportView: View {
                 )
             }
         }
-    }
-
-    private func openMainSite() {
-        guard let url = URL(string: mainSiteURLString) else { return }
-        openURL(url)
     }
 
     private func openCall() {
